@@ -1,0 +1,142 @@
+{
+  "$schema": "../docs/manifest-schema.md",
+  "name": "Startvest Integrity Framework — base manifest",
+  "version": "1.1.0",
+  "changelog": [
+    {
+      "version": "1.1.0",
+      "date": "2026-04-25",
+      "changes": [
+        "Added CRIT-SV-NO-PRE-POPULATED-ATTESTATION (Delve-lesson rule). Attestation outputs must source from customer-submitted evidence, not defaults or pre-populated AI content.",
+        "Widened HIGH-SV-METHODOLOGY-VERSIONED pattern to match TSX <Section title=\"Version\"> rendering in addition to markdown ## Version. Same intent, broader rendering surface."
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-04-25",
+      "changes": ["Initial release. Five universal Layer-2 assertions."]
+    }
+  ],
+  "description": "Universal assertions every Startvest product must satisfy. Per-product manifests at audits/rules/*.json extend this set with product-specific checks. Rule IDs are stable: a product can re-use the id to specialise the check (e.g. tighten the globs) while preserving framework lineage.",
+  "relationshipToOtherStandards": "This framework addresses AI-specific integrity concerns that traditional security audits don't cover (e.g. methodology versioning, AI review gates, evidence chain integrity, failure transparency). It serves a different market segment than SOC 2, ISO 27001, FedRAMP, and similar operational security frameworks. SOC 2 is the right primary trust signal for enterprise SaaS at procurement-checklist scale. This framework is the right primary trust signal for sub-enterprise AI tools where the buyer evaluates a solo founder or small team, and operational security audits don't yet apply. A product may carry both, neither, or one as it grows. The framework is not anti-SOC 2 and not a SOC 2 substitute — it fills the trust-signal gap that exists at the scale SOC 2 doesn't reach.",
+  "frameworkUrl": "https://startvest.ai/framework",
+  "rules": [
+    {
+      "id": "HIGH-SV-INTEGRITY-MD",
+      "severity": "HIGH",
+      "title": "Startvest Integrity Framework — INTEGRITY.md must exist at repo root",
+      "why": "Every Startvest product publishes an INTEGRITY.md mapping Layer 1/2/3 framework status. The file is part of every release so customers and auditors can read it without privileged access.",
+      "fix": "Add INTEGRITY.md at repo root with current Layer 1 veto status, Layer 2 constraint implementation, Layer 3 guardrail status.",
+      "researchCitation": "Startvest Integrity Framework — Project-Level Implementation",
+      "check": {
+        "kind": "file-exists-any",
+        "paths": ["INTEGRITY.md"]
+      }
+    },
+    {
+      "id": "CRIT-SV-NO-SILENT-PASS",
+      "severity": "CRITICAL",
+      "title": "Verification / classification failures must not silently default to a positive state",
+      "why": "Compliance products that silently default to 'verified', 'passed', or 'compliant' on error are how trust collapses (Andersen, Theranos, Delve patterns). Failure transparency is non-negotiable.",
+      "fix": "On exception in compliance code, return an explicit failure / unverified / unknown state and log. Never return verified=true, status='passed', or compliant=true from inside a catch block.",
+      "researchCitation": "Startvest Integrity Framework — Constraint 7 (Failure Transparency)",
+      "check": {
+        "kind": "forbidden-regex",
+        "globs": [
+          "src/**/*.{ts,tsx,js,mjs}",
+          "services/**/*.{ts,tsx,js,mjs}",
+          "app/**/*.{ts,tsx,js,mjs}"
+        ],
+        "patterns": [
+          "catch\\s*\\([^)]*\\)\\s*\\{[^}]{0,400}verified\\s*:\\s*true",
+          "catch\\s*\\([^)]*\\)\\s*\\{[^}]{0,400}compliant\\s*:\\s*true",
+          "catch\\s*\\([^)]*\\)\\s*\\{[^}]{0,400}status\\s*:\\s*['\"]passed['\"]"
+        ]
+      }
+    },
+    {
+      "id": "HIGH-SV-METHODOLOGY-VERSIONED",
+      "severity": "HIGH",
+      "title": "Public methodology page must include version + changelog when present",
+      "why": "Hidden methodologies hide shortcuts. When a methodology page is published, it must carry a version and changelog so customers and auditors can track changes.",
+      "fix": "Surface a Version and a Changelog heading on the methodology page. Markdown (## Version / ## Changelog) and TSX (<Section title=\"Version\"> / <Section title=\"Changelog\">) both satisfy the rule. Rule passes vacuously until the page exists.",
+      "researchCitation": "Startvest Trust Principles — public methodology commitment",
+      "check": {
+        "kind": "required-regex",
+        "globs": [
+          "src/app/methodology/**/*.{tsx,mdx,md}",
+          "src/app/(marketing)/methodology/**/*.{tsx,mdx,md}",
+          "app/methodology/**/*.{tsx,mdx,md}"
+        ],
+        "patterns": [
+          "##\\s*Version|title=[\"']Version[\"']",
+          "##\\s*Changelog|title=[\"']Changelog[\"']"
+        ],
+        "matchAll": true
+      }
+    },
+    {
+      "id": "HIGH-SV-EVIDENCE-RETENTION",
+      "severity": "HIGH",
+      "title": "Customer offboarding must not delete audit / evidence / consent ledger records",
+      "why": "Compliance evidence carries statutory retention separate from product data. Customer offboarding must not hard-delete these tables; soft-delete + customer disclosure is the right pattern.",
+      "fix": "Offboarding / DSAR delete code must not target audit_log, consent_record, or evidence-bearing tables. Mark org inactive; retain evidence.",
+      "researchCitation": "Startvest Integrity Framework — Constraint 5 (Evidence Retention Independence)",
+      "check": {
+        "kind": "forbidden-regex",
+        "globs": [
+          "src/lib/dsar/**/*.{ts,js,mjs}",
+          "src/lib/offboarding/**/*.{ts,js,mjs}",
+          "src/lib/orgs/**/*.{ts,js,mjs}",
+          "src/lib/account/**/*.{ts,js,mjs}"
+        ],
+        "patterns": [
+          "DELETE\\s+FROM\\s+\\w*AuditLog\\b",
+          "DELETE\\s+FROM\\s+\\w*ConsentRecord\\b",
+          "DELETE\\s+FROM\\s+\\w*Audits\\b",
+          "DELETE\\s+FROM\\s+\\w*AuditFindings\\b"
+        ]
+      }
+    },
+    {
+      "id": "CRIT-SV-NO-PRE-POPULATED-ATTESTATION",
+      "severity": "CRITICAL",
+      "title": "Attestation outputs must source from customer-submitted evidence, not defaults or pre-populated AI content",
+      "why": "The Delve failure pattern: attestation outputs (compliance statements, rate letters, audit responses) populated from defaults, templates, or AI-generated content presented as customer attestation. The customer never submitted the underlying evidence; the system invented it. This rule requires that attestation-generating code paths reference customer-submitted markers — making pre-population visible at the code level so it can be banned on review.",
+      "fix": "Any code path that produces a customer-facing attestation must explicitly reference a customer-submitted field name (e.g. customerSubmitted, customerAttested, evidenceId, submittedBy, RateSnapshotJson, EmployeeRowsJson, feedbackEmail, testedAssistiveTech, reviewedBy). The reference can be a column name, a function parameter, or a comment documenting the linkage — but the marker must be locally visible. Rule passes vacuously for products without attestation-generating code (no matching globs).",
+      "researchCitation": "Startvest Integrity Framework — Constraint 3 (Self-Attestation Isolation); Delve case study 2026",
+      "check": {
+        "kind": "required-regex",
+        "globs": [
+          "src/lib/statements*.ts",
+          "src/lib/attestation*.ts",
+          "src/lib/rate-letters*.ts",
+          "src/lib/certified-payroll*.ts",
+          "src/lib/cpars-*.ts"
+        ],
+        "patterns": [
+          "customerSubmitted|customerAttested|RateSnapshotJson|EmployeeRowsJson|evidenceId|submittedBy|attestedBy|reviewedBy|reviewerId|feedbackEmail|testedAssistiveTech|generatedByModel"
+        ],
+        "matchAny": true
+      }
+    },
+    {
+      "id": "INFO-SV-TRUST-PRINCIPLES-LINK",
+      "severity": "INFO",
+      "title": "Public marketing should link to Startvest Trust Principles",
+      "why": "Trust commitments must be discoverable. Customers and auditors need a path from product surface → INTEGRITY.md → Startvest Trust Principles.",
+      "fix": "Add a link to startvest.ai/trust-principles from the privacy page footer or a dedicated trust section.",
+      "researchCitation": "Startvest Trust Principles — discoverability",
+      "check": {
+        "kind": "required-regex",
+        "globs": [
+          "src/app/privacy/**/*.{tsx,mdx,md}",
+          "src/app/(marketing)/**/*.{tsx,mdx,md}",
+          "app/privacy/**/*.{tsx,mdx,md}"
+        ],
+        "patterns": ["trust-principles|startvest\\.ai/trust"],
+        "matchAny": true
+      }
+    }
+  ]
+}
