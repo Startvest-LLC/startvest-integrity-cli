@@ -1,8 +1,15 @@
 {
   "$schema": "../docs/manifest-schema.md",
   "name": "Startvest Integrity Framework — base manifest",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "changelog": [
+    {
+      "version": "1.10.0",
+      "date": "2026-04-29",
+      "changes": [
+        "Widened HIGH-SV-METHODOLOGY-VERSIONED regex patterns to also match raw HTML heading forms like <h2>Version</h2> and <h2>Changelog</h2>. The prior patterns matched only markdown (## Version) and the inline-Section-component convention (title=\"Version\") used by /framework/v1 and /framework/why on theintegrityframework.org — but the directory site's own /methodology page uses raw <section><h2>Version</h2></section> JSX, which satisfies the rule's intent (Version + Changelog headings discoverable on the page) but missed the regex. Same calibration-fragility lesson as v1.3.0 / v1.4.0 / v1.6.0: filename- or markup-shape-based checks miss legitimate alternative shapes. Surfaced by theintegrityframework own-product audit at 2026-04-29. Audit log: theintegrityframework #14 (companion to v1.9.0 ADA work). Now matches: ## Heading (markdown), title=\"Heading\" (Section component), <h1>...<h6> with Heading text (raw HTML/JSX). Backwards compatible across the portfolio."
+      ]
+    },
     {
       "version": "1.9.0",
       "date": "2026-04-29",
@@ -128,7 +135,7 @@
       "severity": "HIGH",
       "title": "Public methodology page must include version + changelog when present",
       "why": "Hidden methodologies hide shortcuts. When a methodology page is published, it must carry a version and changelog so customers and auditors can track changes.",
-      "fix": "Surface a Version and a Changelog heading on the methodology page. Markdown (## Version / ## Changelog) and TSX (<Section title=\"Version\"> / <Section title=\"Changelog\">) both satisfy the rule. Rule passes vacuously until the page exists.",
+      "fix": "Surface a Version and a Changelog heading on the methodology page. Markdown (## Version / ## Changelog), TSX Section component (<Section title=\"Version\"> / <Section title=\"Changelog\">), and raw HTML/JSX headings (<h1>...<h6> with the heading text) all satisfy the rule. Rule passes vacuously until the page exists.",
       "researchCitation": "Startvest Trust Principles — public methodology commitment",
       "check": {
         "kind": "required-regex",
@@ -140,8 +147,8 @@
           "apps/*/app/methodology/**/*.{tsx,mdx,md}"
         ],
         "patterns": [
-          "##\\s*Version|title=[\"']Version[\"']",
-          "##\\s*Changelog|title=[\"']Changelog[\"']"
+          "##\\s*Version|title=[\"']Version[\"']|<h[1-6][^>]*>\\s*Version\\b",
+          "##\\s*Changelog|title=[\"']Changelog[\"']|<h[1-6][^>]*>\\s*Changelog\\b"
         ],
         "matchAll": true
       }
