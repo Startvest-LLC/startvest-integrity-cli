@@ -360,6 +360,67 @@ async function testIntegrityMdClaimsStructuralLint() {
   }
 }
 
+async function testCustomerAttestationValidationGate() {
+  // ADA-shape positive test: trigger fires (conformanceStatus on a Statement
+  // table) and validation gate is present in corpus → PASS.
+  // Negative test: trigger fires + gate missing → FAIL.
+  // Vacuous test: no trigger fires → PASS-vacuous.
+  const root = await makeRepo();
+  try {
+    await mkdir(join(root, 'src', 'lib'), { recursive: true });
+
+    const rule = {
+      id: 'TEST-VALIDATION-GATE',
+      severity: 'CRITICAL',
+      title: 'validation gate test',
+      why: 'C3 third axis',
+      fix: '-',
+      researchCitation: 'test',
+      check: {
+        kind: 'co-occurrence',
+        globs: ['src/**/*.{ts,tsx,js,mjs}'],
+        trigger: {
+          patterns: [
+            '\\b(?:conformance|compliance|attestation)Status\\b',
+            'tableName\\s*:\\s*[\'"][^\'"]*Statement',
+          ],
+        },
+        required: {
+          patterns: [
+            '\\b(?:check|validate|guard)(?:Conformance|Compliance|BeforePublish)\\b',
+            '\\backnowledgeOpenFindings\\b',
+            'checkConformanceGuard',
+          ],
+        },
+      },
+    };
+
+    // Negative: schema declares conformanceStatus, no gate present.
+    await writeFile(
+      join(root, 'src', 'lib', 'schema.ts'),
+      `export const StatementSchema = { tableName: 'Platform_Statements', columns: { conformanceStatus: { type: 'enum' } } };\n`,
+    );
+    let results = await runRules([rule], root);
+    assert.equal(results[0].passed, false, 'should FAIL when status column declared but no gate present');
+
+    // Positive: add the gate to a different file in the corpus.
+    await writeFile(
+      join(root, 'src', 'lib', 'statements.ts'),
+      `export function checkConformanceGuard(orgId: string) { /* refuses 'full' if open findings */ }\n`,
+    );
+    results = await runRules([rule], root);
+    assert.equal(results[0].passed, true, 'should PASS when gate present somewhere in corpus');
+
+    // Vacuous: remove the trigger entirely.
+    await rm(join(root, 'src', 'lib', 'schema.ts'));
+    results = await runRules([rule], root);
+    assert.equal(results[0].passed, true, 'should PASS vacuously when no trigger fires');
+    assert.equal(results[0].vacuous, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
 async function testIntegrityMdClaimsCatchesReverseDrift() {
   // Reproduces IdeaLift's 2026-04-29 reverse-drift case. INTEGRITY.md
   // Outstanding Risks claims a Trust Principles link is missing; the
@@ -691,6 +752,7 @@ const tests = [
   ['forbidden-regex', testForbiddenRegex],
   ['required-regex (vacuous + matchAll)', testRequiredRegexVacuous],
   ['co-occurrence (trigger + required + vacuous)', testCoOccurrence],
+  ['CRIT-SV-CUSTOMER-ATTESTATION-VALIDATION-GATE: ADA-shape', testCustomerAttestationValidationGate],
   ['integrity-md-claims: catches CL-style drift', testIntegrityMdClaimsCatchesClarityLiftDrift],
   ['integrity-md-claims: passes after fix', testIntegrityMdClaimsPassesAfterFix],
   ['integrity-md-claims: structural lint + strikethrough', testIntegrityMdClaimsStructuralLint],

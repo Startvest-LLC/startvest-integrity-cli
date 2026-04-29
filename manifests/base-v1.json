@@ -1,8 +1,15 @@
 {
   "$schema": "../docs/manifest-schema.md",
   "name": "Startvest Integrity Framework — base manifest",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "changelog": [
+    {
+      "version": "1.9.0",
+      "date": "2026-04-29",
+      "changes": [
+        "Added CRIT-SV-CUSTOMER-ATTESTATION-VALIDATION-GATE — third C3 axis. Triggered by ADAComplianceDocs 2026-04-29 audit which surfaced a structurally new Layer 2 shape: customer-attestation publish paths must reference a system-verified validation gate before persisting. Distinct from the two existing C3 axes — output-attestation provenance (v1.4.0+: 'this customer-facing attestation references customer-submitted evidence', e.g. FL's RateSnapshotJson) and input-data provenance (v1.8.0: 'this data is labeled as customer-attested vs system-derived', e.g. HP's customer_attested enum). The new third axis: 'this customer-attested data cannot publish until system-verified evidence supports it', e.g. ADA's checkConformanceGuard at src/lib/statements.ts which blocks Platform_Statements.conformanceStatus='full' publishes when critical/serious axe-core findings are open. Provenance markers say WHERE data came from; validation gates say WHEN data may publish. Different verbs, different runtime semantics — genuinely new principle, not a calibration of v1.8.0. Co-occurrence rule: trigger on customer-attested status column declarations (conformanceStatus, complianceStatus, attestationStatus, certificationStatus, wcagConformance, etc.); require any validation-gate function pattern (checkConformance, conformanceGuard, validateBeforePublish, acknowledgeOpenFindings, ConformanceGuardBlockedError, etc.) somewhere in the corpus. Vacuous-pass when trigger never fires (most products). Validated backwards-compatible against FL (no trigger fires), CL (no trigger), IL (no trigger), HP (no trigger — HP's customer_attested is provenance enum on findings, not a status publish flow), ADA (trigger fires + gate present + passes). First-implementation note: trigger pattern list will need calibration as MA / PRAPI / future products surface edge cases. Closes framework #14. Case study: https://github.com/Startvest-LLC/adacompliancedocs/blob/main/audits/tif-compliance.md#headline-finding-customer-attestation-validation-gate-v190-calibration"
+      ]
+    },
     {
       "version": "1.8.0",
       "date": "2026-04-29",
@@ -301,6 +308,53 @@
             "signedBy",
             "signed_by",
             "signed_by_user_id"
+          ]
+        }
+      }
+    },
+    {
+      "id": "CRIT-SV-CUSTOMER-ATTESTATION-VALIDATION-GATE",
+      "severity": "CRITICAL",
+      "title": "Customer-attestation publish paths must reference a system-verified validation gate",
+      "why": "The third Layer 2 Constraint 3 axis (added v1.9.0 after the ADAComplianceDocs audit). Provenance markers (v1.4.0+ output, v1.8.0 input) say WHERE customer-attested data came from. This rule says WHEN it may publish. Specifically: when a product persists a customer-attested status field — a column on a persisted entity that the customer sets to declare a compliance, conformance, certification, or attestation outcome — the publish path must reference a system-verified validation gate (a function that checks the attestation against the available system-verified evidence and refuses or audit-logs override). Without this gate, the framework cannot prevent the overlay-vendor failure pattern: a customer publishes 'fully compliant' while system-verified findings remain open. Canonical example: ADAComplianceDocs's Platform_Statements.conformanceStatus='full' is gated by checkConformanceGuard in src/lib/statements.ts which queries open critical/serious axe-core findings before allowing the publish. Override permitted via acknowledgeOpenFindings=true but audit-logged. Vacuous-pass when the product has no customer-attested status field — most products don't.",
+      "fix": "If a persisted entity carries a customer-attested status column (conformanceStatus, complianceStatus, attestationStatus, certificationStatus, wcagConformance, etc.), the publish path must call a validation gate (checkConformance, conformanceGuard, validateBeforePublish, requireOpenFindingsResolved, etc.) before persisting. The gate may permit override via an explicit acknowledgement parameter — but the override must be audit-logged. Guard signatures matching ConformanceGuardBlockedError or similar typed-error patterns satisfy the rule; so do guard-function names that include 'validate', 'check', 'guard', 'gate', or 'require' as a verb prefix.",
+      "researchCitation": "Startvest Integrity Framework — Constraint 3 (Self-Attestation Isolation), third axis. Triggered by ADAComplianceDocs 2026-04-29 audit. Closes framework #14.",
+      "check": {
+        "kind": "co-occurrence",
+        "globs": [
+          "src/**/*.{ts,tsx,js,mjs}",
+          "app/**/*.{ts,tsx,js,mjs}",
+          "services/**/*.{ts,tsx,js,mjs}",
+          "lib/**/*.{ts,tsx,js,mjs}",
+          "apps/**/*.{ts,tsx,js,mjs}",
+          "packages/**/*.{ts,tsx,js,mjs}",
+          "sql/**/*.sql",
+          "scripts/**/*.sql"
+        ],
+        "trigger": {
+          "patterns": [
+            "\\b(?:conformance|compliance|attestation|certification|wcag|accessibility)Status\\s*:\\s*z\\.enum\\(",
+            "\\b(?:conformance|compliance|attestation|certification|wcag|accessibility)Status\\s*:\\s*\\{",
+            "\\b(?:conformance|compliance|attestation|certification|wcag|accessibility)Status\\s*:\\s*['\"](?:full|partial|compliant|non-conformant|certified|attested)",
+            "\\b(?:conformance|compliance|attestation|certification|wcag|accessibility)_status\\s+(?:nvarchar|varchar|nchar|enum)",
+            "\\bConformanceLevel\\s*:\\s*(?:z\\.enum|\\{)",
+            "\\bComplianceLevel\\s*:\\s*(?:z\\.enum|\\{)",
+            "tableName\\s*:\\s*['\"][^'\"]*Statement(?:s|Schema|Entity)?['\"]",
+            "tableName\\s*:\\s*['\"][^'\"]*Conformance(?:s|Schema|Entity)?['\"]",
+            "tableName\\s*:\\s*['\"][^'\"]*ComplianceClaim(?:s|Schema|Entity)?['\"]"
+          ]
+        },
+        "required": {
+          "patterns": [
+            "\\b(?:check|validate|guard|require|enforce)(?:Conformance|Compliance|Attestation|BeforePublish|PrePublish|OpenFinding|PublishGate)\\b",
+            "\\b(?:conformance|compliance|attestation|publish|validation)\\s*[Gg]ate\\b",
+            "\\backnowledgeOpenFindings\\b",
+            "\\b(?:Conformance|Compliance|Attestation|Publish|Validation)Guard(?:Blocked)?Error\\b",
+            "checkConformanceGuard",
+            "validateBeforePublish",
+            "requireOpenFindingsResolved",
+            "publishGuard",
+            "attestationGuard"
           ]
         }
       }
