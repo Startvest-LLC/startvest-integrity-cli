@@ -60,6 +60,13 @@ update both sides.
 The CLI ships a base manifest at `manifests/base-v1.json` containing the
 universal Layer-2 assertions every Startvest product must satisfy:
 
+- `CRIT-SV-NO-BASE-ID-OVERRIDE` — per-product manifests must not re-use base
+  rule ids (drift prevention; enforced at manifest-merge time).
+- `CRIT-SV-AI-REVIEW-GATE` — repos that invoke an LLM (any AI SDK import or
+  `messages.create` / `chat.completions.create` call) must record a
+  review-gate marker (`generatedByModel`, `reviewedBy`, etc.) somewhere in
+  the corpus (co-occurrence; revised v1.3.0 to fix false negatives in
+  layered architectures).
 - `HIGH-SV-INTEGRITY-MD` — repo has an `INTEGRITY.md` at root.
 - `CRIT-SV-NO-SILENT-PASS` — no `verified: true` / `compliant: true` /
   `status: 'passed'` returned from a `catch` block.
@@ -75,9 +82,13 @@ universal Layer-2 assertions every Startvest product must satisfy:
 
 It then merges in any per-product rules found at
 `<repo>/audits/rules/*.json` (ClarityLift's schema, since adopted across the
-Startvest portfolio). Rules in the per-product manifest can override a base
-rule by re-using its `id` to specialise globs/patterns, or extend with new
-ids.
+Startvest portfolio). Per-product rules **extend** the base with new,
+product-specific ids (e.g. `HIGH-FL-EVIDENCE-RETENTION` for FieldLedger,
+`CRIT-CL-*` for ClarityLift). Per-product rules **must not** re-use a base
+rule id — `CRIT-SV-NO-BASE-ID-OVERRIDE` (base v1.2.0+) detects collisions
+at manifest-merge time and the colliding per-product rule is dropped. Both
+the base rule and the product-specific rule run; coverage layers, never
+overrides. This closes the silent-loosening drift vector.
 
 ## Manifest schema
 

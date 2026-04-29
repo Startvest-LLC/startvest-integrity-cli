@@ -1,7 +1,10 @@
 // Manifest loader. The CLI ships a base manifest (the framework v1.0
 // assertion suite) and merges in any per-product rules files found at
-// <repo>/audits/rules/*.json. Per-product rules can override a base rule by
-// re-using its id, or extend with new ids.
+// <repo>/audits/rules/*.json. Per-product rules extend the base with new
+// product-specific ids (HIGH-FL-*, CRIT-CL-*, etc.). Re-using a base rule id
+// is forbidden (CRIT-SV-NO-BASE-ID-OVERRIDE, base v1.2.0+) and is reported
+// as a collision at merge time; the colliding per-product rule is dropped
+// and the base rule continues to run unchanged.
 
 import { readFile, readdir } from 'node:fs/promises';
 import { resolve, join, dirname, sep } from 'node:path';
@@ -45,12 +48,17 @@ export async function buildEffectiveRules({ repoRoot, includeBase = true, baseOn
   const base = await loadBaseManifest();
   const repoFiles = baseOnly ? [] : await loadRepoManifest(repoRoot);
 
+  const baseIds = new Set(base.rules.map((r) => r.id));
   const seen = new Map();
   const order = [];
+  const collisions = [];
 
   function take(rule, source) {
     if (seen.has(rule.id)) {
-      seen.set(rule.id, { rule, source });
+      // Earlier wins. We never overwrite a previously-seen rule. For base
+      // rules this is moot (uniqueness within base is a manifest-author
+      // responsibility). For per-product rules colliding with base ids,
+      // the collision is recorded below before take() is even called.
       return;
     }
     seen.set(rule.id, { rule, source });
@@ -61,7 +69,15 @@ export async function buildEffectiveRules({ repoRoot, includeBase = true, baseOn
     for (const rule of base.rules) take(rule, BASE_MANIFEST_PATH);
   }
   for (const file of repoFiles) {
-    for (const rule of file.rules) take(rule, file.source);
+    for (const rule of file.rules) {
+      if (baseIds.has(rule.id) && includeBase) {
+        // CRIT-SV-NO-BASE-ID-OVERRIDE: per-product rule re-uses a base id.
+        // Drop the per-product rule; the base rule keeps running.
+        collisions.push({ ruleId: rule.id, source: file.source });
+        continue;
+      }
+      take(rule, file.source);
+    }
   }
 
   const effective = order.map((id) => seen.get(id).rule);
@@ -72,6 +88,7 @@ export async function buildEffectiveRules({ repoRoot, includeBase = true, baseOn
     effective,
     sources,
     repoFiles: repoFiles.map((f) => f.source),
+    collisions,
   };
 }
 

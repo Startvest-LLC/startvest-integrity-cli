@@ -121,7 +121,7 @@ async function cmdCheck(argv) {
   }
   const repoRoot = resolve(flags.repo);
 
-  const { effective, base, sources, repoFiles } = await buildEffectiveRules({
+  const { effective, base, sources, repoFiles, collisions } = await buildEffectiveRules({
     repoRoot,
     baseOnly: flags.baseOnly,
     includeBase: !flags.noBase,
@@ -132,7 +132,14 @@ async function cmdCheck(argv) {
     return 3;
   }
 
-  const results = await runRules(effective, repoRoot);
+  // CRIT-SV-NO-BASE-ID-OVERRIDE is enforced at manifest-merge time, not by
+  // the file scanner. Synthesize its result from collisions; filter the
+  // marker rule out of what we hand to runRules so the runner doesn't see a
+  // check.kind it doesn't recognise.
+  const metaRuleResult = synthesizeBaseIdOverrideResult(base, collisions);
+  const scannableRules = effective.filter((r) => r.check?.kind !== 'manifest-meta');
+  const scanResults = await runRules(scannableRules, repoRoot);
+  const results = metaRuleResult ? [metaRuleResult, ...scanResults] : scanResults;
   const counts = countBySeverity(results);
 
   if (flags.format === 'json') {
@@ -184,6 +191,36 @@ async function cmdVerify(argv) {
   }
 
   return result.missing.length === 0 ? 0 : 1;
+}
+
+function synthesizeBaseIdOverrideResult(base, collisions) {
+  const rule = base.rules.find((r) => r.id === 'CRIT-SV-NO-BASE-ID-OVERRIDE');
+  if (!rule) return null;
+  if (!collisions || collisions.length === 0) {
+    return {
+      ruleId: rule.id,
+      severity: rule.severity,
+      title: rule.title,
+      passed: true,
+      findings: [],
+    };
+  }
+  return {
+    ruleId: rule.id,
+    severity: rule.severity,
+    title: rule.title,
+    passed: false,
+    findings: collisions.map((c) => ({
+      ruleId: rule.id,
+      severity: rule.severity,
+      title: rule.title,
+      why: rule.why,
+      fix: `Rename "${c.ruleId}" in ${c.source} to a product-specific id (replace the SV namespace with the product code).`,
+      researchCitation: rule.researchCitation,
+      location: c.source,
+      found: `per-product rule id "${c.ruleId}" collides with base manifest`,
+    })),
+  };
 }
 
 function countBySeverity(results) {

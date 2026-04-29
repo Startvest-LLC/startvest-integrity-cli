@@ -1,8 +1,59 @@
 {
   "$schema": "../docs/manifest-schema.md",
   "name": "Startvest Integrity Framework — base manifest",
-  "version": "1.1.0",
+  "version": "1.8.0",
   "changelog": [
+    {
+      "version": "1.8.0",
+      "date": "2026-04-29",
+      "changes": [
+        "Widened required marker patterns for CRIT-SV-AI-REVIEW-GATE and CRIT-SV-NO-PRE-POPULATED-ATTESTATION to accept naming variants surfaced by HirePosture's 2026-04-29 audit. AI-review-gate adds `signed_by`, `signedBy`, `signed_by_user_id` (HP's memo signing gate marker). Pre-populated-attestation adds `customer_attested`, `attested_by` (snake_case variants of customerAttested / attestedBy). Calibration question raised: HirePosture's `customer_attested` is a *data-input* provenance marker (a finding's `source` column distinguishing rule_match vs llm_extraction vs customer_attested), not an *output-attestation* provenance marker (FieldLedger's RateSnapshotJson on persisted rate letters). Both serve the same Layer 2 Constraint 3 goal (keep customer-attested data isolated from system-derived) but at different layers — input-data vs output-attestation. The framework now accepts both forms because both indicate the constraint is structurally enforced. This is the candidate-data-vs-compliance-attestation distinction the audit anticipated. Audit log: rule revision driven by HirePosture (audit 4 of 7). Validated backwards-compatible against FL/CL/IL: same pass counts as v1.7.0. Case study: https://github.com/Startvest-LLC/hireposture/blob/main/audits/tif-compliance.md#rule-revision-history-this-audit"
+      ]
+    },
+    {
+      "version": "1.7.0",
+      "date": "2026-04-29",
+      "changes": [
+        "Extended HIGH-SV-INTEGRITY-MD-CLAIMS-VERIFIABLE to scan the Outstanding Risks / Known Gaps section in addition to Recent Changes. The rule now accepts multiple sections, each with a configurable policy: claim-presence (Recent Changes — current behavior) or claim-absence (Outstanding Risks — new). Absence-claim policy: any entry that asserts something is missing/not-implemented/not-in-place/not-yet-X must reference a file path or marker the rule can verify is genuinely absent — either a runnable sidecar assertion (file-not-contains / file-not-exists) or a structural reference (file path, #N ticket, etc.) so a reader can check by hand. Also added file-not-exists assertion kind. Audit log: extension driven by IdeaLift 2026-04-29 audit, which surfaced reverse documentation drift (claim of absence; actually present) in INTEGRITY.md Outstanding Risks — out of scope for the v1.5.0 rule. Now in scope. Mirror coverage: ClarityLift's drift was forward (claim of presence; absent); IdeaLift's was reverse (claim of absence; present). Both directions of silent-pass-at-the-documentation-layer are now caught by the framework. Backwards-compat: products without an Outstanding Risks section pass vacuously. Backfill applied to FieldLedger and IdeaLift Outstanding Risks sections; ClarityLift has no Outstanding Risks section. Case study: https://github.com/Startvest-LLC/idealift/blob/master/audits/tif-compliance.md#documentation-drift-mirrored"
+      ]
+    },
+    {
+      "version": "1.6.0",
+      "date": "2026-04-29",
+      "changes": [
+        "Widened globs across CRIT-SV-NO-SILENT-PASS, HIGH-SV-METHODOLOGY-VERSIONED, HIGH-SV-EVIDENCE-RETENTION, CRIT-SV-NO-PRE-POPULATED-ATTESTATION, CRIT-SV-AI-REVIEW-GATE, INFO-SV-TRUST-PRINCIPLES-LINK to include monorepo-conventional paths apps/** and packages/**. IdeaLift's 2026-04-29 audit surfaced the gap: production AI SDK usage (Anthropic + OpenAI) lives at apps/web/src/lib/, apps/web/src/app/api/, and packages/*/src/, all of which the v1.5.0 globs (src/**, app/**, services/**, lib/**) missed. Result: the AI-review-gate rule vacuous-passed against a product that legitimately uses AI in production. Same root cause as the v1.3.0/v1.4.0 revisions driven by FieldLedger: the framework had been calibrated against the products audited so far, and each new product surfaces a calibration gap the prior products didn't expose. Validated backwards-compatible against FieldLedger (14/15 pass; same critical/high failures as v1.5.0) and ClarityLift (69/72 pass; same failures); the widened globs add coverage for monorepo products without changing behavior for single-package products. Audit log: rule revision driven by IdeaLift (audit 3 of 7). Case study: https://github.com/Startvest-LLC/idealift/blob/master/audits/tif-compliance.md#rule-revision-history-this-audit"
+      ]
+    },
+    {
+      "version": "1.5.0",
+      "date": "2026-04-29",
+      "changes": [
+        "Added HIGH-SV-INTEGRITY-MD-CLAIMS-VERIFIABLE. INTEGRITY.md Recent Changes entries must now carry either (a) a structural reference (file path, commit hash, version tag, or #N issue/PR ref) or (b) for high-value claim phrasings (link added, marker added, exemption added, Trust Principles), a matching runnable assertion in audits/integrity-claims.json. Strikethrough text (~~...~~) is treated as retracted and stripped before evaluation, so INTEGRITY.md can carry honest correction history. Audit log: rule triggered by ClarityLift 2026-04-28 audit, which surfaced two documentation-drift cases — claims in INTEGRITY.md (dated 2026-04-25) that referenced code changes never actually shipped. The framework prohibits silent-pass at the code layer (CRIT-SV-NO-SILENT-PASS); this rule extends the discipline to the documentation layer. Compromise option C from framework issue #5: structural lint always-on, runnable assertions for the four high-value claim types. Format documented at theintegrityframework/dev-tools/integrity-md-claims-format.md. Case study (resolution chain): https://github.com/Startvest-LLC/claritylift/blob/master/audits/tif-compliance.md#headline-finding-documentation-drift",
+        "Added integrity-md-claims check kind to the runner. Two-tier check on a markdown section. Vacuous-pass when INTEGRITY.md or the section is missing. Sidecar assertions support file-contains, file-not-contains, and file-exists kinds — extensible."
+      ]
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-04-28",
+      "changes": [
+        "Revised CRIT-SV-NO-PRE-POPULATED-ATTESTATION to use the co-occurrence check kind. Same root cause as the v1.3.0 CRIT-SV-AI-REVIEW-GATE revision: the original filename-based check globs targeted library files (src/lib/cpars-*.ts, src/lib/rate-letters*.ts, etc.) where attestation output is computed, but customer-submitted markers (RateSnapshotJson, EmployeeRowsJson, generatedByModel) live at the persistence/schema layer (entity-schemas.ts) where TypeORM EntitySchema declarations sit. The revised rule fires when the corpus contains attestation-bearing entities (tableName matching Payroll/RateLetter/CparsResponse/Attestation/Statement/Certification) or attestation-emitting functions (submit*Response, generate*Letter), and requires that at least one customer-submitted marker appears somewhere in the corpus. Audit log: rule revision driven by the same FieldLedger 2026-04-28 audit pass that drove v1.3.0; surfaced as a second false-negative once Finding 2 had cleared. Lesson recorded: filename-based content checks are calibration-fragile across product architectures. Case study (resolution chain row 2): https://github.com/Startvest-LLC/FieldLedger/blob/master/audits/tif-compliance.md#rule-revision-history-this-audit"
+      ]
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-04-28",
+      "changes": [
+        "Added CRIT-SV-AI-REVIEW-GATE as a base rule using a new content-based check kind (co-occurrence). Promoted from FieldLedger's per-product manifest after the 2026-04-28 portfolio audit revealed the original filename-based version produced a false negative against FieldLedger: AI-output review markers (generatedByModel) lived at the persistence/schema layer (entity-schemas.ts, API route), not in the file the rule's globs targeted (cpars-drafting.ts, which is a pure library that returns { text, model }). Filename-based checks calibrate against a hypothetical product layout. Real codebases use layered architectures. The revised rule scans the corpus, fires when any file imports an AI SDK or invokes an LLM API, and requires at least one review-gate marker to appear somewhere in the scanned corpus. This is the framework working as designed: a CI rule that produces false negatives is silent-pass at the meta level, which is exactly the failure mode the framework prohibits at the product level. Audit log: rule revision driven by FieldLedger audit, not by product gap. Case study (resolution chain row 1): https://github.com/Startvest-LLC/FieldLedger/blob/master/audits/tif-compliance.md#rule-revision-history-this-audit",
+        "Added co-occurrence check kind to the runner. Corpus-level content check: trigger patterns + required patterns. Vacuous-pass when no trigger fires (rule inactive in repos that don't use the gated capability)."
+      ]
+    },
+    {
+      "version": "1.2.0",
+      "date": "2026-04-28",
+      "changes": [
+        "Added CRIT-SV-NO-BASE-ID-OVERRIDE meta-rule. Per-product manifests at audits/rules/*.json must not re-use base rule ids. Closes the silent-loosening drift vector: products extend the base with product-specific ids (HIGH-FL-*, CRIT-CL-*, etc.); they never override. Enforced at manifest-merge time by the runner."
+      ]
+    },
     {
       "version": "1.1.0",
       "date": "2026-04-25",
@@ -17,10 +68,19 @@
       "changes": ["Initial release. Five universal Layer-2 assertions."]
     }
   ],
-  "description": "Universal assertions every Startvest product must satisfy. Per-product manifests at audits/rules/*.json extend this set with product-specific checks. Rule IDs are stable: a product can re-use the id to specialise the check (e.g. tighten the globs) while preserving framework lineage.",
+  "description": "Universal assertions every Startvest product must satisfy. Per-product manifests at audits/rules/*.json extend this set with product-specific checks using product-specific rule ids (HIGH-FL-*, CRIT-CL-*, etc.). Per-product manifests must never re-use a base rule id — see CRIT-SV-NO-BASE-ID-OVERRIDE. Both the base rule and the per-product rule run; coverage layers, never overrides.",
   "relationshipToOtherStandards": "This framework addresses AI-specific integrity concerns that traditional security audits don't cover (e.g. methodology versioning, AI review gates, evidence chain integrity, failure transparency). It serves a different market segment than SOC 2, ISO 27001, FedRAMP, and similar operational security frameworks. SOC 2 is the right primary trust signal for enterprise SaaS at procurement-checklist scale. This framework is the right primary trust signal for sub-enterprise AI tools where the buyer evaluates a solo founder or small team, and operational security audits don't yet apply. A product may carry both, neither, or one as it grows. The framework is not anti-SOC 2 and not a SOC 2 substitute — it fills the trust-signal gap that exists at the scale SOC 2 doesn't reach.",
   "frameworkUrl": "https://startvest.ai/framework",
   "rules": [
+    {
+      "id": "CRIT-SV-NO-BASE-ID-OVERRIDE",
+      "severity": "CRITICAL",
+      "title": "Per-product manifests must not re-use base rule ids",
+      "why": "Base rules are canonical. Re-using a base id in a per-product manifest creates a silent drift vector: a product can loosen a base check (broaden its globs, weaken its patterns) and the base id appears to be enforced when it has actually been quietly relaxed. Products must extend the base with new, product-specific ids — they never override. This rule is enforced at manifest-merge time by the runner: any per-product rule whose id collides with a base rule id is reported as a violation, and the per-product rule is dropped (the base rule continues to run).",
+      "fix": "Rename the per-product rule to a product-specific id by replacing the SV namespace with the product code: HIGH-FL-* for FieldLedger, CRIT-CL-* for ClarityLift, INFO-IL-* for IdeaLogger, etc. Both rules then run: the base for portfolio-wide coverage, the per-product rule for product-specific specialisation.",
+      "researchCitation": "Startvest Integrity Framework — drift prevention, TIF portfolio audit 2026-04-28",
+      "check": { "kind": "manifest-meta", "scope": "merge-time" }
+    },
     {
       "id": "HIGH-SV-INTEGRITY-MD",
       "severity": "HIGH",
@@ -45,7 +105,9 @@
         "globs": [
           "src/**/*.{ts,tsx,js,mjs}",
           "services/**/*.{ts,tsx,js,mjs}",
-          "app/**/*.{ts,tsx,js,mjs}"
+          "app/**/*.{ts,tsx,js,mjs}",
+          "apps/**/*.{ts,tsx,js,mjs}",
+          "packages/**/*.{ts,tsx,js,mjs}"
         ],
         "patterns": [
           "catch\\s*\\([^)]*\\)\\s*\\{[^}]{0,400}verified\\s*:\\s*true",
@@ -66,7 +128,9 @@
         "globs": [
           "src/app/methodology/**/*.{tsx,mdx,md}",
           "src/app/(marketing)/methodology/**/*.{tsx,mdx,md}",
-          "app/methodology/**/*.{tsx,mdx,md}"
+          "app/methodology/**/*.{tsx,mdx,md}",
+          "apps/*/src/app/methodology/**/*.{tsx,mdx,md}",
+          "apps/*/app/methodology/**/*.{tsx,mdx,md}"
         ],
         "patterns": [
           "##\\s*Version|title=[\"']Version[\"']",
@@ -88,7 +152,13 @@
           "src/lib/dsar/**/*.{ts,js,mjs}",
           "src/lib/offboarding/**/*.{ts,js,mjs}",
           "src/lib/orgs/**/*.{ts,js,mjs}",
-          "src/lib/account/**/*.{ts,js,mjs}"
+          "src/lib/account/**/*.{ts,js,mjs}",
+          "apps/*/src/lib/dsar/**/*.{ts,js,mjs}",
+          "apps/*/src/lib/offboarding/**/*.{ts,js,mjs}",
+          "apps/*/src/lib/orgs/**/*.{ts,js,mjs}",
+          "apps/*/src/lib/account/**/*.{ts,js,mjs}",
+          "packages/*/src/dsar/**/*.{ts,js,mjs}",
+          "packages/*/src/offboarding/**/*.{ts,js,mjs}"
         ],
         "patterns": [
           "DELETE\\s+FROM\\s+\\w*AuditLog\\b",
@@ -101,23 +171,155 @@
     {
       "id": "CRIT-SV-NO-PRE-POPULATED-ATTESTATION",
       "severity": "CRITICAL",
-      "title": "Attestation outputs must source from customer-submitted evidence, not defaults or pre-populated AI content",
-      "why": "The Delve failure pattern: attestation outputs (compliance statements, rate letters, audit responses) populated from defaults, templates, or AI-generated content presented as customer attestation. The customer never submitted the underlying evidence; the system invented it. This rule requires that attestation-generating code paths reference customer-submitted markers — making pre-population visible at the code level so it can be banned on review.",
-      "fix": "Any code path that produces a customer-facing attestation must explicitly reference a customer-submitted field name (e.g. customerSubmitted, customerAttested, evidenceId, submittedBy, RateSnapshotJson, EmployeeRowsJson, feedbackEmail, testedAssistiveTech, reviewedBy). The reference can be a column name, a function parameter, or a comment documenting the linkage — but the marker must be locally visible. Rule passes vacuously for products without attestation-generating code (no matching globs).",
-      "researchCitation": "Startvest Integrity Framework — Constraint 3 (Self-Attestation Isolation); Delve case study 2026",
+      "title": "Repos that produce attestation outputs must reference customer-submitted markers somewhere",
+      "why": "The Delve failure pattern: attestation outputs (compliance statements, rate letters, audit responses, CPARS replies) populated from defaults, templates, or AI-generated content presented as customer attestation. The customer never submitted the underlying evidence; the system invented it. This rule fires when the corpus contains attestation-bearing entities or attestation-emitting functions, and requires that at least one customer-submitted marker (column, parameter, or evidence id) appears somewhere in the corpus. Co-occurrence rather than filename-based: in real codebases, attestation output is computed in libraries but persisted (with markers) at the schema/route layer; filename-based globs miss the marker location and produce false negatives.",
+      "fix": "Any code path that produces a customer-facing attestation must explicitly tie back to customer-submitted evidence: a column on the persisted entity (RateSnapshotJson, EmployeeRowsJson, customerSubmitted, customerAttested, etc.), a function parameter (submittedBy, attestedBy), or a marker that gates publication (reviewedBy, generatedByModel). The marker can live in any file in the corpus — schema, route, or library — but at least one must be present when the trigger fires. Vacuous-pass when the repo has no attestation-bearing entities or functions.",
+      "researchCitation": "Startvest Integrity Framework — Constraint 3 (Self-Attestation Isolation); Delve case study 2026. Rule revised v1.4.0 after FieldLedger 2026-04-28 audit surfaced filename-based false negatives.",
       "check": {
-        "kind": "required-regex",
+        "kind": "co-occurrence",
         "globs": [
-          "src/lib/statements*.ts",
-          "src/lib/attestation*.ts",
-          "src/lib/rate-letters*.ts",
-          "src/lib/certified-payroll*.ts",
-          "src/lib/cpars-*.ts"
+          "src/**/*.{ts,tsx,js,mjs}",
+          "app/**/*.{ts,tsx,js,mjs}",
+          "services/**/*.{ts,tsx,js,mjs}",
+          "lib/**/*.{ts,tsx,js,mjs}",
+          "apps/**/*.{ts,tsx,js,mjs}",
+          "packages/**/*.{ts,tsx,js,mjs}"
         ],
-        "patterns": [
-          "customerSubmitted|customerAttested|RateSnapshotJson|EmployeeRowsJson|evidenceId|submittedBy|attestedBy|reviewedBy|reviewerId|feedbackEmail|testedAssistiveTech|generatedByModel"
+        "trigger": {
+          "patterns": [
+            "tableName\\s*:\\s*['\"][^'\"]*(Payroll|RateLetter|CparsResponse|Attestation|Statement|Certification|AuditResponse|AuditFinding)",
+            "(submit|generate|draft|render|produce)[A-Z][a-zA-Z]*(Response|Letter|Attestation|Statement|Certification|Payroll)"
+          ]
+        },
+        "required": {
+          "patterns": [
+            "customerSubmitted",
+            "customer_submitted",
+            "customerAttested",
+            "customer_attested",
+            "RateSnapshotJson",
+            "EmployeeRowsJson",
+            "evidenceId",
+            "evidence_id",
+            "submittedBy",
+            "submitted_by",
+            "attestedBy",
+            "attested_by",
+            "reviewedBy",
+            "reviewed_by",
+            "reviewerId",
+            "reviewer_id",
+            "feedbackEmail",
+            "testedAssistiveTech",
+            "generatedByModel"
+          ]
+        }
+      }
+    },
+    {
+      "id": "CRIT-SV-AI-REVIEW-GATE",
+      "severity": "CRITICAL",
+      "title": "Repos that invoke an LLM must record an AI-output review-gate marker somewhere",
+      "why": "AI output cannot reach a customer-facing claim without a review gate. The gate is a persistence-layer marker (e.g. generatedByModel, reviewedBy, aiReviewedAt) that records which model generated the output and whether a human reviewed it before publication. Filename-based checks miss layered architectures where the SDK is imported in a library file but the marker is attached at the route or schema layer. This rule is content-based: if the repo invokes an LLM anywhere, it must record a review marker somewhere. The check is intentionally weak (corpus-level co-occurrence) — it catches the obvious failure mode (LLM in use, no marker anywhere) without requiring the rule to model every product's architecture.",
+      "fix": "If the repo imports an AI SDK or makes an LLM API call, add a review-gate marker at the persistence layer: a column like GeneratedByModel / generatedByModel on the entity that stores AI output, plus reviewedBy / reviewedAt that gates customer-facing publication. The marker should be referenced at write time so the gate is structurally enforced, not just declared. Documented examples: FieldLedger's CparsResponse (src/lib/entity-schemas.ts) + write path (src/app/api/cpars/ratings/[id]/draft/route.ts).",
+      "researchCitation": "Startvest Integrity Framework — Constraint 2 (AI Output Review Gates). Rule revised v1.3.0 after FieldLedger 2026-04-28 audit surfaced filename-based false negatives.",
+      "check": {
+        "kind": "co-occurrence",
+        "globs": [
+          "src/**/*.{ts,tsx,js,mjs}",
+          "app/**/*.{ts,tsx,js,mjs}",
+          "services/**/*.{ts,tsx,js,mjs}",
+          "lib/**/*.{ts,tsx,js,mjs}",
+          "apps/**/*.{ts,tsx,js,mjs}",
+          "packages/**/*.{ts,tsx,js,mjs}"
         ],
-        "matchAny": true
+        "trigger": {
+          "patterns": [
+            "from\\s+['\"]@anthropic-ai/sdk['\"]",
+            "from\\s+['\"]@anthropic-ai/bedrock-sdk['\"]",
+            "from\\s+['\"]@anthropic-ai/vertex-sdk['\"]",
+            "from\\s+['\"]openai['\"]",
+            "from\\s+['\"]@azure/openai['\"]",
+            "from\\s+['\"]@google/generative-ai['\"]",
+            "from\\s+['\"]@google-ai/generativelanguage['\"]",
+            "from\\s+['\"]@google-cloud/vertexai['\"]",
+            "from\\s+['\"]@aws-sdk/client-bedrock-runtime['\"]",
+            "from\\s+['\"]ai['\"]",
+            "from\\s+['\"]@ai-sdk/",
+            "from\\s+['\"]@langchain/",
+            "from\\s+['\"]langchain['\"]",
+            "from\\s+['\"]llamaindex['\"]",
+            "from\\s+['\"]@huggingface/inference['\"]",
+            "from\\s+['\"]cohere-ai['\"]",
+            "from\\s+['\"]replicate['\"]",
+            "from\\s+['\"]@mistralai/mistralai['\"]",
+            "from\\s+['\"]together-ai['\"]",
+            "from\\s+['\"]groq-sdk['\"]",
+            "from\\s+['\"]@modelcontextprotocol/sdk",
+            "api\\.anthropic\\.com",
+            "api\\.openai\\.com",
+            "api\\.x\\.ai",
+            "api\\.cohere\\.com",
+            "api\\.replicate\\.com",
+            "api\\.together\\.xyz",
+            "api\\.groq\\.com",
+            "api\\.mistral\\.ai",
+            "api\\.perplexity\\.ai",
+            "generativelanguage\\.googleapis\\.com",
+            "aiplatform\\.googleapis\\.com",
+            "[a-z0-9-]+\\.openai\\.azure\\.com",
+            "bedrock-runtime\\.[a-z0-9-]+\\.amazonaws\\.com",
+            "api-inference\\.huggingface\\.co",
+            "client\\.messages\\.create",
+            "client\\.messages\\.stream",
+            "openai\\.chat\\.completions\\.create",
+            "openai\\.completions\\.create",
+            "openai\\.responses\\.create",
+            "openai\\.embeddings\\.create",
+            "model\\.generateContent",
+            "model\\.streamContent",
+            "model\\.startChat",
+            "\\.invokeModel\\b",
+            "\\.invokeModelWithResponseStream\\b",
+            "(streamText|generateText|streamObject|generateObject|embed|embedMany)\\s*\\(",
+            "experimental_streamText",
+            "client\\.callTool",
+            "callTool\\("
+          ]
+        },
+        "required": {
+          "patterns": [
+            "generatedByModel",
+            "GeneratedByModel",
+            "generated_by_model",
+            "reviewedBy",
+            "reviewed_by",
+            "aiReviewedAt",
+            "ai_reviewed_at",
+            "modelUsed",
+            "model_used",
+            "signedBy",
+            "signed_by",
+            "signed_by_user_id"
+          ]
+        }
+      }
+    },
+    {
+      "id": "HIGH-SV-INTEGRITY-MD-CLAIMS-VERIFIABLE",
+      "severity": "HIGH",
+      "title": "INTEGRITY.md Recent Changes claims must be structurally referenced or runnably verified",
+      "why": "Documentation drift is a silent-pass failure mode. A product's INTEGRITY.md can claim 'X link added' or 'Y marker shipped', and unless someone actually checks, the claim can sit untrue indefinitely. This rule prohibits that pattern. Every dated Recent Changes entry must carry either (a) a structural reference (file path, commit hash, version tag, or #N issue/PR ref) so a reader can verify the claim against current state, or (b) for high-value claim phrasings — link added, marker added, exemption added, Trust Principles — a runnable assertion in audits/integrity-claims.json that the runner executes and verifies on every audit. Strikethrough text (~~...~~) is treated as retracted and stripped before evaluation, so INTEGRITY.md can carry honest correction history without re-failing the rule. Surfaced by the ClarityLift 2026-04-28 audit, where two Recent Changes entries (dated 2026-04-25) claimed code changes that were never actually shipped. The framework prohibits silent-pass at the code layer; this rule extends the discipline to the documentation layer.",
+      "fix": "When writing a Recent Changes entry, include either: a file path (src/..., audits/..., docs/...), a commit hash (7+ hex chars), a #N issue or PR reference, a version tag (vX.Y.Z), or a markdown link / file-name code span. For link / marker / exemption / Trust Principles claims, also add a sidecar entry in audits/integrity-claims.json with a runnable assertion (kind: file-contains | file-not-contains | file-exists) so the next audit verifies the claim against code reality. Format documented at theintegrityframework/dev-tools/integrity-md-claims-format.md.",
+      "researchCitation": "Startvest Integrity Framework — meta-rule HIGH-SV-INTEGRITY-MD-CLAIMS-VERIFIABLE. Triggered by ClarityLift 2026-04-28 audit. See base v1.5.0 changelog and case study link.",
+      "check": {
+        "kind": "integrity-md-claims",
+        "integrityMdPath": "INTEGRITY.md",
+        "claimsSidecarPath": "audits/integrity-claims.json",
+        "sections": [
+          { "heading": "Recent Changes", "policy": "claim-presence" },
+          { "heading": "Outstanding Risks / Known Gaps", "policy": "claim-absence" }
+        ]
       }
     },
     {
@@ -132,7 +334,10 @@
         "globs": [
           "src/app/privacy/**/*.{tsx,mdx,md}",
           "src/app/(marketing)/**/*.{tsx,mdx,md}",
-          "app/privacy/**/*.{tsx,mdx,md}"
+          "app/privacy/**/*.{tsx,mdx,md}",
+          "apps/*/src/app/privacy/**/*.{tsx,mdx,md}",
+          "apps/*/src/app/(marketing)/**/*.{tsx,mdx,md}",
+          "apps/*/app/privacy/**/*.{tsx,mdx,md}"
         ],
         "patterns": ["trust-principles|startvest\\.ai/trust"],
         "matchAny": true
