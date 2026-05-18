@@ -1,7 +1,7 @@
 {
   "name": "@startvest/integrity-cli",
-  "version": "1.2.0",
-  "description": "Run the Startvest Integrity Framework v1.0 assertion suite against any repo, and browse / submit listings to the Integrity Framework Directory.",
+  "version": "1.3.0",
+  "description": "CLI for The Integrity Framework. Run the v1.0 assertion suite against any repo, generate badge markdown, browse and submit listings to the Integrity Framework Directory. Pure ESM, zero runtime dependencies.",
   "type": "module",
   "bin": {
     "integrity": "./bin/integrity.mjs"
@@ -10,18 +10,38 @@
     "bin/",
     "src/",
     "manifests/",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "test": "node test/runner.test.mjs"
+    "test": "node test/runner.test.mjs && node test/badge.test.mjs"
   },
-  "license": "Apache-2.0",
-  "homepage": "https://startvest.ai/framework",
+  "license": "MIT",
+  "keywords": [
+    "integrity-framework",
+    "trust-framework",
+    "compliance",
+    "soc2-alternative",
+    "ai-safety",
+    "ai-trust",
+    "sub-enterprise",
+    "trust-artifact",
+    "audit",
+    "verifiability",
+    "cli"
+  ],
+  "homepage": "https://theintegrityframework.org/framework/v1",
+  "bugs": {
+    "url": "https://github.com/Startvest-LLC/startvest-integrity-cli/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/startvest/integrity-cli"
+    "url": "git+https://github.com/Startvest-LLC/startvest-integrity-cli.git"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

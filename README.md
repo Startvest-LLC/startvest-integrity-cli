@@ -1,10 +1,14 @@
 # @startvest/integrity-cli
 
-Two surfaces:
+The reference CLI for [The Integrity Framework](https://theintegrityframework.org/framework/v1) — a public CC BY 4.0 trust standard for sub-enterprise AI tools, where SOC 2 audits don't apply.
 
-1. Run the [Startvest Integrity Framework](https://startvest.ai/framework) v1.0
-   assertion suite against any repo. Deterministic runner, no LLM, no network.
-2. Browse and submit listings to the [Integrity Framework Directory](https://theintegrityframework.org/).
+Three surfaces:
+
+1. **`integrity check`** — Run the v1.0 assertion suite against any repo. Deterministic runner, no LLM, no network.
+2. **`integrity directory`** — Browse and submit listings to the [Integrity Framework Directory](https://theintegrityframework.org/listings).
+3. **`integrity badge`** — Emit tier-badge markdown for your README, linking back to the framework spec or your directory listing.
+
+Zero runtime dependencies. Pure ESM. Node ≥ 20.
 
 ## Install
 
@@ -22,13 +26,14 @@ integrity check ./your-repo
 ## Usage
 
 ```bash
-integrity check <repo>          # run base + per-product manifest
-integrity verify <repo>          # confirm repo manifest covers base rule ids
-integrity rules                  # print the v1.0 base manifest as JSON
-integrity directory list         # browse listings on theintegrityframework.org
-integrity directory show <slug>  # full detail for one listing
-integrity directory validate <file>  # check a listing JSON against the schema
-integrity directory submit <file>    # validate then surface the submission paths
+integrity check <repo>                        # run base + per-product manifest
+integrity verify <repo>                       # confirm repo manifest covers base rule ids
+integrity rules                               # print the v1.0 base manifest as JSON
+integrity directory list                      # browse listings on theintegrityframework.org
+integrity directory show <slug>               # full detail for one listing
+integrity directory validate <file>           # check a listing JSON against the schema
+integrity directory submit <file>             # validate then surface the submission paths
+integrity badge <bronze|silver> [--slug=...]  # emit tier-badge markdown
 integrity --version
 ```
 
@@ -54,6 +59,26 @@ update both sides.
 - `1` — one or more CRITICAL findings
 - `2` — one or more HIGH findings (only when `--strict`)
 - `3` — usage error
+
+## Badge
+
+Once your product is listed in the directory at a Bronze or Silver tier, you can embed a tier badge in your README so prospective buyers can verify the listing in one click.
+
+```bash
+$ integrity badge bronze --slug=mycompany
+[![Integrity Framework Bronze](https://img.shields.io/badge/INTEGRITY-Bronze-CD7F32?logoColor=white)](https://theintegrityframework.org/listings/mycompany)
+```
+
+Output formats:
+
+- `--format=markdown` (default) — the markdown shown above
+- `--format=html` — `<a><img></a>` for trust pages
+- `--format=url` — image URL only, for places that ask for the bare badge URL
+- `--format=json` — all fields, for tooling
+
+Without `--slug`, the badge links to `/framework/v1` instead of a listing page — useful for projects that follow the framework but haven't submitted a listing yet.
+
+Gold is deferred to a future framework version; only `bronze` and `silver` are accepted today.
 
 ## How it works
 
@@ -149,4 +174,4 @@ running version is reported in every check output.
 
 ## License
 
-Apache-2.0
+MIT — see [LICENSE](./LICENSE). The framework specification itself (Layer 1 vetoes, Layer 2 constraints, Layer 3 guardrails) is published separately under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) at [theintegrityframework.org/framework/v1](https://theintegrityframework.org/framework/v1).
