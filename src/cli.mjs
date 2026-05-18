@@ -21,6 +21,7 @@ import { runRules } from './runner.mjs';
 import { buildEffectiveRules, loadBaseManifest, verifyBaseCoverage } from './manifest.mjs';
 import { renderHuman } from './report-human.mjs';
 import { runDirectory } from './directory.mjs';
+import { runBadge } from './badge.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -58,6 +59,7 @@ function usage() {
     '  integrity verify <repo> [--format=human|json]',
     '  integrity rules',
     '  integrity directory <list|show|validate|submit> ...',
+    '  integrity badge <bronze|silver> [--slug=<slug>] [--format=markdown|html|url|json]',
     '  integrity --version',
     '',
     'check / verify / rules:',
@@ -108,6 +110,7 @@ export async function run(argv) {
   if (sub === 'check') return cmdCheck(rest);
   if (sub === 'verify') return cmdVerify(rest);
   if (sub === 'directory') return runDirectory(rest);
+  if (sub === 'badge') return runBadge(rest);
 
   process.stderr.write(`integrity: unknown command "${sub}"\n${usage()}\n`);
   return 3;
