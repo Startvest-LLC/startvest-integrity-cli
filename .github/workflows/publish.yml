@@ -1,0 +1,104 @@
+name: Publish to npm
+
+# Publishes @startvest/integrity-cli to npm with cryptographic provenance
+# via GitHub OIDC, so consumers can verify the tarball came from this repo's
+# actual commit history. Required during the active Shai-Hulud window (and
+# good hygiene afterwards).
+#
+# Triggers:
+#   - push of a tag matching v* (the normal release path)
+#   - manual workflow_dispatch (for re-publishing a fix without retag)
+#
+# Setup (one-time, by repo admin):
+#   1. Create an npm "automation" token scoped to @startvest/integrity-cli:
+#        npm token create --read-only=false --scope=@startvest --cidr-whitelist=...
+#      OR via npmjs.com → Access Tokens → "Granular Access Token" with publish
+#      rights to just this package.
+#   2. Add as repo secret named NPM_TOKEN:
+#        gh secret set NPM_TOKEN -R Startvest-LLC/startvest-integrity-cli
+#   3. On npmjs.com, enable "Require 2FA for publishing" on the package.
+#      Automation tokens bypass the human 2FA prompt; provenance + the
+#      tight token scope is the trust chain.
+#
+# Release flow:
+#   1. Land your change on main.
+#   2. Bump version in package.json + commit.
+#   3. git tag v$(node -p "require('./package.json').version") && git push --tags
+#   4. This workflow runs. Verify the published version at
+#      https://www.npmjs.com/package/@startvest/integrity-cli
+#      and the provenance attestation at the bottom of that page.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (npm pack only, no publish)'
+        type: boolean
+        default: false
+
+permissions:
+  # OIDC token for npm provenance. Without this, --provenance fails.
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          # Cache disabled — this package has no dependencies, and caching
+          # node_modules during the Shai-Hulud window is exactly the kind of
+          # supply-chain footgun we are trying to avoid.
+
+      - name: Verify package shape
+        run: |
+          echo "=== package.json (sanity) ==="
+          node -e "const p=require('./package.json'); console.log(JSON.stringify({name:p.name,version:p.version,license:p.license,deps:Object.keys(p.dependencies||{}).length,devDeps:Object.keys(p.devDependencies||{}).length},null,2))"
+          echo ""
+          echo "=== npm pack --dry-run (what will ship) ==="
+          npm pack --dry-run
+          echo ""
+          echo "=== Scripts (publish-time risk surface) ==="
+          node -e "const s=require('./package.json').scripts||{}; for (const k of Object.keys(s)) console.log('  '+k+': '+s[k]);"
+          echo ""
+          # Fail loud if any preinstall / postinstall / prepublish appeared.
+          # Those are the install-time code-execution hooks Shai-Hulud abuses.
+          node -e "const s=require('./package.json').scripts||{}; const bad=['preinstall','install','postinstall','prepublish'].filter(k=>s[k]); if(bad.length){console.error('FAIL: dangerous lifecycle scripts:',bad);process.exit(1)}"
+
+      - name: Run tests
+        run: npm test
+
+      - name: Dry run only
+        if: ${{ inputs.dry_run == true }}
+        run: |
+          echo "Dry run requested — skipping publish."
+          npm pack
+          ls -la *.tgz
+
+      - name: Publish
+        if: ${{ inputs.dry_run != true }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # --provenance attaches a Sigstore attestation linking this tarball
+          # to this repo + commit + workflow run. --access public is needed
+          # because @startvest/* is a scoped package (default is private for
+          # scoped packages on free npm plans).
+          npm publish --provenance --access public
+
+      - name: Print published version
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          v=$(node -p "require('./package.json').version")
+          echo "Published @startvest/integrity-cli@$v"
+          echo "https://www.npmjs.com/package/@startvest/integrity-cli/v/$v"
