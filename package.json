@@ -1,6 +1,6 @@
 {
   "name": "@startvest/integrity-cli",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "CLI for The Integrity Framework. Run the v1.0 assertion suite against any repo, generate badge markdown, browse and submit listings to the Integrity Framework Directory. Pure ESM, zero runtime dependencies.",
   "type": "module",
   "bin": {

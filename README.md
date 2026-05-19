@@ -60,6 +60,16 @@ update both sides.
 - `2` — one or more HIGH findings (only when `--strict`)
 - `3` — usage error
 
+### Tier (JSON output, v1.4.0+)
+
+The JSON payload returned by `check --format=json` includes a top-level `tier` field, derived from the severity counts so tooling doesn't have to reimplement the mapping:
+
+- `"silver"` — no CRITICAL and no HIGH findings (CLI-green path)
+- `"bronze"` — no CRITICAL but one or more HIGH findings
+- `"fail"` — one or more CRITICAL findings
+
+The directory's other Silver path — a public methodology page with `Version` + `Changelog` headings — is intentionally not computed here. It requires a remote URL fetch and lives in the directory site.
+
 ## Badge
 
 Once your product is listed in the directory at a Bronze or Silver tier, you can embed a tier badge in your README so prospective buyers can verify the listing in one click.

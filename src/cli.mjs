@@ -145,6 +145,8 @@ async function cmdCheck(argv) {
   const results = metaRuleResult ? [metaRuleResult, ...scanResults] : scanResults;
   const counts = countBySeverity(results);
 
+  const tier = computeTier(counts);
+
   if (flags.format === 'json') {
     const payload = {
       framework: 'Startvest Integrity Framework',
@@ -152,6 +154,7 @@ async function cmdCheck(argv) {
       repoRoot,
       sources: { base: !flags.noBase, repoManifests: repoFiles },
       counts,
+      tier,
       results,
     };
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
@@ -232,4 +235,16 @@ function countBySeverity(results) {
     if (!r.passed) counts[r.severity] = (counts[r.severity] ?? 0) + 1;
   }
   return counts;
+}
+
+// Tier derived from severity counts. Matches the green-build path of the
+// directory's tier gates: Silver via CLI-green (no CRITICAL, no HIGH),
+// Bronze when a published integrity.md exists but HIGH findings remain,
+// fail when any CRITICAL is unresolved. The methodology-page Silver path
+// is intentionally not computed here — it requires a remote URL fetch
+// and lives in the directory site, not in this CLI.
+export function computeTier(counts) {
+  if ((counts?.CRITICAL ?? 0) > 0) return 'fail';
+  if ((counts?.HIGH ?? 0) > 0) return 'bronze';
+  return 'silver';
 }
