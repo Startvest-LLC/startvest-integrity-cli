@@ -1,43 +1,38 @@
 name: Publish to npm
 
 # Publishes @startvest/integrity-cli to npm with cryptographic provenance
-# via GitHub OIDC, so consumers can verify the tarball came from this repo's
-# actual commit history. Required during the active Shai-Hulud window (and
-# good hygiene afterwards).
+# via GitHub OIDC.
 #
-# Triggers:
-#   - push of a tag matching v* (the normal release path)
-#   - manual workflow_dispatch (for re-publishing a fix without retag)
+# STATUS (2026-05): NPM PUBLISH IS NOT ACTIVE.
+# Consumers install via git tag instead:
+#   npx github:Startvest-LLC/startvest-integrity-cli#v1.4.0
+# The integrity-md-action wraps that install. No npm consumer exists today.
 #
-# Setup (one-time, by repo admin):
-#   1. Create an npm "automation" token scoped to @startvest/integrity-cli:
-#        npm token create --read-only=false --scope=@startvest --cidr-whitelist=...
-#      OR via npmjs.com → Access Tokens → "Granular Access Token" with publish
-#      rights to just this package.
-#   2. Add as repo secret named NPM_TOKEN:
-#        gh secret set NPM_TOKEN -R Startvest-LLC/startvest-integrity-cli
-#   3. On npmjs.com, enable "Require 2FA for publishing" on the package.
-#      Automation tokens bypass the human 2FA prompt; provenance + the
-#      tight token scope is the trust chain.
+# Reason for the hold: post-Shai-Hulud, npm requires interactive OTP for
+# all token-based publishes regardless of token type (classic Automation,
+# granular). The account uses a hardware security key (WebAuthn-only) which
+# cannot generate OTP codes, so token-based publish is mechanically closed.
+# Trusted publishing via OIDC is the only remaining viable path; revisit
+# when a concrete npm consumer materializes or when npm policy stabilizes.
 #
-# Release flow:
-#   1. Land your change on main.
-#   2. Bump version in package.json + commit.
-#   3. git tag v$(node -p "require('./package.json').version") && git push --tags
-#   4. This workflow runs. Verify the published version at
-#      https://www.npmjs.com/package/@startvest/integrity-cli
-#      and the provenance attestation at the bottom of that page.
+# To re-enable when ready:
+#   1. Configure trusted publishing on npmjs.com for @startvest/integrity-cli
+#      (Repository: Startvest-LLC/startvest-integrity-cli, Workflow: publish.yml).
+#   2. Remove the `NODE_AUTH_TOKEN` line below — pure OIDC, no secret needed.
+#   3. Restore the `push: tags:` trigger below.
+#   4. Push a tag to trigger the first publish; the workflow will claim the
+#      package name via OIDC.
+#
+# Current trigger: workflow_dispatch only. Tags do NOT trigger publish so
+# tagging a release does not produce an automatic failed run.
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       dry_run:
         description: 'Dry run (npm pack only, no publish)'
         type: boolean
-        default: false
+        default: true
 
 permissions:
   # OIDC token for npm provenance. Without this, --provenance fails.
